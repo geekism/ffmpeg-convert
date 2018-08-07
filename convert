@@ -1,0 +1,35 @@
+#!/bin/bash
+DELETE_SOURCE=0
+INPATH="$HOME/Downloads/"
+OUTPATH="/media/storage/Completed"
+
+# DO NOT EDIT ANYTHING BELOW
+ORIGIFS="$IFS"
+IFS=$'\n'
+FILES=$(find "${INPATH}" -name "*.mkv" -print)
+COUNT=$(ls ${INPATH}*.mkv|wc -l)
+CURRENT=0
+
+function _convert() {
+
+if [[ -e ".convert.lock" ]]; then cat .convert.lock >> "$HOME/bin/convert.log" 2>&1; exit 0; fi
+echo -e "Found ${COUNT} videos to convert" >> "$HOME/bin/convert.log" 2>&1
+for i in $FILES
+do
+	CURRENT=$((CURRENT+1)); newfilename="${i##*/}"; oldfilename="${i##*/}"
+	if [[ $i == .*Sample.* ]]; 	then rm -rf "${INPATH}$i"; fi
+	if [[ -e ${OUTPATH}/${newfilename%.mkv}.avi ]]; then echo "${newfilename%.mkv}.avi: Exists, Skipping ... " >> "$HOME/bin/convert.log" 2>&1
+	else
+		touch "$HOME/.convert.lock"
+		echo -e "Current ffmpeg: ${newfilename%.mkv}.avi (${CURRENT} of ${COUNT}) is being converted at the moment, please wait ..." > "$HOME/.convert.lock"
+		echo -e "Converting ${oldfilename} to ${newfilename%.mkv}.avi (${CURRENT} of ${COUNT})... " >> "$HOME/bin/convert.log" 2>&1
+		(pv -f -F 'Converted: %b Elapsed: %t Current: %r Average: %a %p %e' "$i" | ffmpeg -i pipe:0 -v error -ar 44100 -async 44100 -r 29.970 -q:a 2 -q:v 2 -ac 2 "${OUTPATH}/${newfilename%.mkv}.avi") >> "$HOME/bin/convert.log" 2>&1
+		echo "" >> "$HOME/bin/convert.log" 2>&1
+		if [[ ${DELETE_SOURCE} == "1" ]]; then echo "Deleting $i ... "; rm -rf "$i"; fi
+		rm -rf "$HOME/.convert.lock"
+	fi
+done
+}
+
+_convert
+IFS="$ORIGIFS"
